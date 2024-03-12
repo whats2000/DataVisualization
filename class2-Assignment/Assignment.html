@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Assignment 2</title>
+
+    <meta charset="utf-8">
+
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v6.js"></script>
+</head>
+<body>
+<!-- Initialize a select button -->
+<label for="selectButton"></label>
+<select id="selectButton"></select>
+<div id="visualization"></div>
+<script>
+
+    // Set the dimensions and margins of the graph
+    const margin = {top: 10, right: 100, bottom: 30, left: 30},
+        width = 460 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+    // Append the svg object to the body of the page
+    const svg = d3.select("#visualization")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Parse the Data
+    d3.csv("data2.csv")
+        .then(data => {
+            /**
+             * Transfer the display of the graph according to the selected option.
+             * @param {string} target - The selected option.
+             */
+            const transferDisplay = (target) => {
+                if (target === 'Scale x-axis 0-5000') {
+                    d3.select("#x-axis")
+                        .transition()
+                        .duration(1000)
+                        .call(d3.axisBottom(x.domain([0, 5000])));
+
+                    d3.select("#line")
+                        .transition()
+                        .duration(1000)
+                        .attr("d", d3.line()
+                            .x(d => x(Number(d['value'])))
+                            .y(d => y(Number(d['time'])))
+                        );
+
+                    d3.selectAll(".dot")
+                        .transition()
+                        .duration(1000)
+                        .attr("cx", d => x(Number(d['value'])));
+                } else {
+                    d3.select("#x-axis")
+                        .transition()
+                        .duration(1000)
+                        .call(d3.axisBottom(x.domain(d3.extent(data, d => Number(d['value'])))));
+
+                    d3.select("#line")
+                        .transition()
+                        .duration(1000)
+                        .attr("d", d3.line(d => x(Number(d['value'])), d => y(Number(d['time']))));
+
+                    d3.selectAll(".dot")
+                        .transition()
+                        .duration(1000)
+                        .attr("cx", d => x(Number(d['value'])));
+                }
+            };
+
+            // Options for the select button
+            const displayOptions = ['Scale x-axis 0-5000', 'Scale x-axis to data'];
+
+            // X axis
+            const x = d3.scaleLinear()
+                .range([0, width])
+                .domain([0, 5000]);
+
+            svg.append("g")
+                .attr("transform", `translate(0, ${height})`)
+                .call(d3.axisBottom(x))
+                .attr("id", "x-axis");
+
+            // Add Y axis
+            const y = d3.scaleLinear()
+                .range([height, 0])
+                .domain([0, 100]);
+
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Add the line
+            svg.append("g")
+                .append("path")
+                .datum(data)
+                .attr("d", d3.line()
+                    .x(d => x(Number(d['value'])))
+                    .y(d => y(Number(d['time'])))
+                )
+                .attr("stroke", "orange")
+                .attr("stroke-width", 4)
+                .attr("fill", "none")
+                .attr("id", "line");
+
+            // Add scatter plot
+            svg.append("g")
+                .selectAll("dot")
+                .data(data)
+                .join("circle")
+                .attr("cx", d => x(Number(d['value'])))
+                .attr("cy", d => y(Number(d['time'])))
+                .attr("r", 5)
+                .attr("fill", "orange")
+                .attr("class", "dot");
+
+            // Add select button
+            d3.select("#selectButton")
+                .selectAll("option")
+                .data(displayOptions)
+                .join("option")
+                .attr("value", d => d)
+                .text(d => d);
+
+            d3.select("#selectButton")
+                .on("change", (event) => {
+                    const selectedOption = event.target.value;
+                    transferDisplay(selectedOption);
+                });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+</script>
+</body>
+</html>

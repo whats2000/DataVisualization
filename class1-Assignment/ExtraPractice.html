@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Assignment 2</title>
+
+    <meta charset="utf-8">
+
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v6.js"></script>
+</head>
+<body>
+<div id="visualization"></div>
+<script>
+    // Set the dimensions and margins of the graph
+    const margin = {top: 30, right: 30, bottom: 70, left: 60},
+        width = 460 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+    // Append the svg object to the body of the page
+    const svg = d3.select("#visualization")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Parse the Data
+    d3.csv("data1.csv")
+        .then(data => {
+            // Horizontal Bar Chart
+            // X axis for "profit"
+            const x = d3.scaleLinear()
+                .range([0, width])
+                .domain([0, 1000]);
+
+            svg.append("g")
+                .call(d3.axisBottom(x))
+                .attr("transform", `translate(0, ${height})`);
+
+            // Add Y axis
+            const y = d3.scaleBand()
+                .range([0, height])
+                .domain(data.map(d => d['city']))
+                .padding(0.2);
+
+            svg.append("g")
+                .call(d3.axisLeft(y));
+
+            // Bars 1
+            svg.selectAll("bar1")
+                .data(data)
+                .join("rect")
+                .attr("x", 0)
+                .attr("y", d => y(d['city']))
+                .attr("width", d => x(d['profit']))
+                .attr("height", y.bandwidth())
+                .attr("fill", "#69b3a2");
+
+            // Bars 2
+            svg
+                .selectAll("bar2")
+                .data(data)
+                .join("rect")
+                .attr("x", d => x(d['profit']) + 2)
+                .attr("y", d => y(d['city']))
+                .attr("width", d => width - x(d['profit']))
+                .attr("height", y.bandwidth())
+                .attr("fill", "orange");
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+</script>
+</body>
+</html>

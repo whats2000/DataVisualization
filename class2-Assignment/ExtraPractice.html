@@ -1,0 +1,165 @@
+<!-- Optimized by GPT-4 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Assignment 2</title>
+    <meta charset="utf-8">
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v6.js"></script>
+</head>
+<body>
+<!-- Initialize a select button -->
+<label for="selectButton"></label>
+<select id="selectButton"></select>
+<div id="visualization"></div>
+<script>
+    /**
+     * Set the dimensions and margins of the graph.
+     */
+    const margin = {top: 10, right: 100, bottom: 30, left: 30},
+        width = 460 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+    /**
+     * Initialize SVG canvas for visualization.
+     */
+    const svg = d3.select("#visualization")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    /**
+     * Parse the data and build the chart.
+     */
+    d3.csv("data2.csv")
+        .then(buildChart)
+        .catch(error => console.error('Error:', error));
+
+    /**
+     * Builds the chart with given data.
+     * @param {Object[]} data - The data fetched from CSV.
+     */
+    function buildChart(data) {
+        // Initialize scales and axes
+        initializeScales(data);
+        initializeAxes();
+        // Draw the line and dots
+        drawLineAndDots(data);
+        // Initialize the select button
+        initializeSelectButton(data);
+    }
+
+    /**
+     * Initializes scales based on data.
+     * @param {Object[]} data - The data to determine scales.
+     */
+    function initializeScales(data) {
+        // X axis scale
+        window.x = d3.scaleLinear().range([0, width]).domain([0, 5000]);
+        // Y axis scale
+        window.y = d3.scaleLinear().range([height, 0]).domain([0, 100]);
+    }
+
+    /**
+     * Draws axes on the SVG.
+     */
+    function initializeAxes() {
+        svg.append("g")
+            .attr("transform", `translate(0, ${height})`)
+            .call(d3.axisBottom(window.x))
+            .attr("id", "x-axis");
+
+        svg.append("g")
+            .call(d3.axisLeft(window.y));
+    }
+
+    /**
+     * Draws the line and dots on the SVG.
+     * @param {Object[]} data - The data for line and dots.
+     */
+    function drawLineAndDots(data) {
+        svg.append("g")
+            .append("path")
+            .datum(data)
+            .attr("d", d3.line()
+                .x(d => window.x(Number(d['value'])))
+                .y(d => window.y(Number(d['time'])))
+            )
+            .attr("stroke", "orange")
+            .attr("stroke-width", 4)
+            .attr("fill", "none")
+            .attr("id", "line");
+
+        svg.append("g")
+            .selectAll("dot")
+            .data(data)
+            .join("circle")
+            .attr("cx", d => window.x(Number(d['value'])))
+            .attr("cy", d => window.y(Number(d['time'])))
+            .attr("r", 5)
+            .attr("fill", "orange")
+            .attr("class", "dot");
+    }
+
+    /**
+     * Initializes the select button and its event handler.
+     * @param {Object[]} data - The data for adjusting display based on selection.
+     */
+    function initializeSelectButton(data) {
+        const displayOptions = ['Scale x-axis 0-5000', 'Scale x-axis to data'];
+
+        d3.select("#selectButton")
+            .selectAll("option")
+            .data(displayOptions)
+            .join("option")
+            .attr("value", d => d)
+            .text(d => d);
+
+        d3.select("#selectButton")
+            .on("change", event => transferDisplay(event.target.value, data));
+    }
+
+    /**
+     * Adjusts display based on selected option.
+     * @param {string} target - The selected option.
+     * @param {Object[]} data - The data for adjusting scales.
+     */
+    function transferDisplay(target, data) {
+        if (target === 'Scale x-axis 0-5000') {
+            adjustScales([0, 5000], data);
+        } else {
+            adjustScales(d3.extent(data, d => Number(d['value'])), data);
+        }
+    }
+
+    /**
+     * Adjusts scales and updates visualization.
+     * @param {Array} domain - The new domain for the x scale.
+     * @param {Object[]} data - The data for updating the visualization.
+     */
+    function adjustScales(domain, data) {
+        window.x.domain(domain);
+
+        d3.select("#x-axis")
+            .transition()
+            .duration(1000)
+            .call(d3.axisBottom(window.x));
+
+        d3.select("#line")
+            .transition()
+            .duration(1000)
+            .attr("d", d3.line()
+                .x(d => window.x(Number(d['value'])))
+                .y(d => window.y(Number(d['time'])))
+            );
+
+        d3.selectAll(".dot")
+            .transition()
+            .duration(1000)
+            .attr("cx", d => window.x(Number(d['value'])));
+    }
+</script>
+</body>
+</html>
