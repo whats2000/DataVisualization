@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Monty Hall Simulation - Animated Line Plot</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      .line {
+        fill: none;
+        stroke-width: 2px;
+      }
+      .switch {
+        stroke: orange;
+      }
+      .stay {
+        stroke: blue;
+      }
+    </style>
+</head>
+<body>
+<div id="visualization"></div>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const numSimulations = 1000;
+        const simulationStep = 10; // Update the plot every 10 iterations
+        let winsIfSwitched = [];
+        let winsIfStayed = [];
+        let winCountSwitch = 0;
+        let winCountStay = 0;
+        let currentIteration = 0;
+
+        const svg = d3.select("#visualization").append("svg")
+            .attr("width", 600)
+            .attr("height", 400)
+            .append("g")
+            .attr("transform", "translate(50, 30)");
+
+        const xScale = d3.scaleLinear()
+            .domain([0, numSimulations])
+            .range([0, 500]);
+
+        const yScale = d3.scaleLinear()
+            .domain([0, numSimulations / 2]) // Assuming switch strategy wins about half the time
+            .range([300, 0]);
+
+        svg.append("g")
+            .attr("transform", "translate(0, 300)")
+            .call(d3.axisBottom(xScale));
+
+        svg.append("g")
+            .call(d3.axisLeft(yScale));
+
+        const lineGenerator = d3.line()
+            .x((d, i) => xScale(i * simulationStep))
+            .y(d => yScale(d));
+
+        const pathStay = svg.append("path")
+            .attr("class", "line stay");
+
+        const pathSwitch = svg.append("path")
+            .attr("class", "line switch");
+
+        const simulateAndUpdate = () => {
+            if (currentIteration >= numSimulations) {
+                reset();
+                return;
+            }
+
+            for (let i = 0; i < simulationStep && currentIteration < numSimulations; i++, currentIteration++) {
+                const correctDoor = Math.floor(Math.random() * 3);
+                const playerInitialChoice = Math.floor(Math.random() * 5);
+                const winStay = playerInitialChoice === correctDoor;
+                const winSwitch = !winStay;
+
+                winCountStay += winStay ? 1 : 0;
+                winCountSwitch += winSwitch ? 1 : 0;
+            }
+
+            winsIfStayed.push(winCountStay);
+            winsIfSwitched.push(winCountSwitch);
+
+            pathStay
+                .datum(winsIfStayed)
+                .attr("d", lineGenerator);
+
+            pathSwitch
+                .datum(winsIfSwitched)
+                .attr("d", lineGenerator);
+
+            // Call the function again to continue the simulation
+            setTimeout(simulateAndUpdate, 100); // Adjust timing for smoother or faster animation
+        }
+
+        const reset = () => {
+            winsIfStayed = [];
+            winsIfSwitched = [];
+            winCountStay = 0;
+            winCountSwitch = 0;
+            currentIteration = 0;
+            simulateAndUpdate();
+        }
+
+        simulateAndUpdate();
+    });
+</script>
+</body>
+</html>
