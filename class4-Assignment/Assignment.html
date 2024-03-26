@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Assignment 3</title>
+
+    <meta charset="utf-8">
+
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v6.js"></script>
+</head>
+<body>
+<div id="visualization"></div>
+<script>
+    /**
+     * @interface IrisData
+     *
+     * @property {string} section
+     * @property {number} time
+     * @property {number} temperature
+     */
+
+    /**
+     * Enlarge the dot when hovering over it
+     * @param event {MouseEvent} The event object
+     */
+    const handleHover = (event) => {
+        d3.select(event.target)
+            .transition()
+            .duration(200)
+            .attr("r", 10)
+            .attr("opacity", 1);
+    };
+
+    /**
+     * Shrink the dot when the mouse leaves it
+     * @param event {MouseEvent} The event object
+     */
+    const handleNoHover = (event) => {
+        d3.select(event.target)
+            .transition()
+            .duration(200)
+            .attr("r", 5)
+            .attr("opacity", 0.5);
+    };
+
+    /**
+     * Remove the dot when double-clicked
+     * @param event {MouseEvent} The event object
+     */
+    const handleDoubleClick = event => {
+        d3.select(event.target)
+            .transition()
+            .duration(500)
+            .attr("r", 5)
+            .style("opacity", 0);
+    };
+
+    function handleDrag (event, d) {
+        d3.select(this)
+            .attr("cx", d.x = event.x)
+            .attr("cy", d.y = event.y);
+    }
+
+    // Set up the dimensions of the plot
+    const margin = {top: 10, right: 30, bottom: 30, left: 60},
+        width = 460 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+    // Create the SVG element
+    const svg = d3.select("#visualization")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+    d3.csv("data3.csv")
+        .then(
+            /**
+             * @param {IrisData[]} data
+             */
+            (data) => {
+
+                // Add X axis
+                const x = d3.scaleLinear()
+                    .domain([0, 200])
+                    .range([0, width]);
+
+                svg.append("g")
+                    .attr("transform", `translate(0, ${height})`)
+                    .call(d3.axisBottom(x));
+
+                // Add Y axis
+                const y = d3.scaleLinear()
+                    .domain([0, 40])
+                    .range([height, 0]);
+
+                svg.append("g")
+                    .call(d3.axisLeft(y));
+
+                /**
+                 * Color map for the sections
+                 * @param section {string} The section to map
+                 * @returns {string}
+                 */
+                const colorMap = d3.scaleOrdinal(d3.schemeCategory10);
+
+                // Add dots
+                svg.append('g')
+                    .selectAll("dot")
+                    .data(data)
+                    .join("circle")
+                    .attr("cx", d => x(d.time))
+                    .attr("cy", d => y(d.temperature))
+                    .attr("r", 5)
+                    .attr("opacity", 0.5)
+                    .style("fill", d => colorMap(d.section))
+                    .on("mouseover", handleHover)
+                    .on("mouseout", handleNoHover)
+                    .on("dblclick", handleDoubleClick)
+                    .call(d3.drag()
+                        .on("drag", handleDrag)
+                    );
+            }
+        ).catch((error) => {
+        console.error("Error loading the data", error);
+    });
+</script>
+</body>
+</html>
