@@ -12,16 +12,20 @@
 <div id="visualization"></div>
 <script>
     /**
-     * @interface IrisData
-     *
-     * @property {string} section
-     * @property {number} time
-     * @property {number} temperature
+     * @typedef {Object} IrisData
+     * @property {number} time - The time of the measurement
+     * @property {number} temperature - The temperature of the measurement
+     * @property {string} section - The section of the measurement
+     */
+
+    /**
+     * @typedef {Object} SVGMouseEvent
+     * @property {SVGElement} target - The target element
      */
 
     /**
      * Enlarge the dot when hovering over it
-     * @param event {MouseEvent} The event object
+     * @param event {SVGMouseEvent} The event object
      */
     const handleHover = (event) => {
         d3.select(event.target)
@@ -33,7 +37,7 @@
 
     /**
      * Shrink the dot when the mouse leaves it
-     * @param event {MouseEvent} The event object
+     * @param event {SVGMouseEvent} The event object
      */
     const handleNoHover = (event) => {
         d3.select(event.target)
@@ -45,7 +49,7 @@
 
     /**
      * Remove the dot when double-clicked
-     * @param event {MouseEvent} The event object
+     * @param event {SVGMouseEvent} The event object
      */
     const handleDoubleClick = event => {
         d3.select(event.target)
@@ -79,7 +83,7 @@
             /**
              * @param {IrisData[]} data
              */
-            (data) => {
+            data => {
 
                 // Add X axis
                 const x = d3.scaleLinear()

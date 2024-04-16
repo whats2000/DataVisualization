@@ -137,9 +137,8 @@
     /**
      * Adjusts scales and updates visualization.
      * @param {Array} domain - The new domain for the x scale.
-     * @param {Object[]} data - The data for updating the visualization.
      */
-    function adjustScales(domain, data) {
+    function adjustScales(domain) {
         window.x.domain(domain);
 
         d3.select("#x-axis")

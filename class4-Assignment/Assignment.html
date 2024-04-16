@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Assignment 3</title>
+
+    <meta charset="utf-8">
+
+    <!-- Load d3.js -->
+    <script src="https://d3js.org/d3.v6.js"></script>
+</head>
+<body>
+<!-- Create a div where the visualization will be placed -->
+<div id="visualization"></div>
+
+<!-- Create a div where the selected labels will be placed -->
+<div id="selection"></div>
+<script>
+    /**
+     * Create the bar chart show in the previous slide
+     * Bar color when brushed: orange
+     * Highlight a bar when it is brushed over by any part of the selection box
+     * Click outside brushed area to cancel brush and highlighted bars (restore original colors)
+     * For the bars that are brushed, their x-axis labels will be shown in order below the chart as shown in the previous slide
+     * The listed labels below the chart has the same left margin (left-aligned to yaxis) as the chart above
+     */
+
+    /**
+     * @typedef {Object} Data
+     * @property {string} city - The name of the city
+     * @property {number} profit - The profit of the city
+     */
+    /**
+     * @typedef {Object} BrushEvent
+     * @property {[[number, number], [number, number]]} selection
+     */
+
+    // Set the dimensions and margins of the graph
+    const margin = {top: 30, right: 30, bottom: 70, left: 60},
+        width = 460 - margin.left - margin.right,
+        height = 400 - margin.top - margin.bottom;
+
+    // Append the svg object to the body of the page
+    const svg = d3.select("#visualization")
+        .append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Parse the Data
+    d3.csv("data4.csv")
+        .then(
+            /**
+             * @param {Data[]} data
+             */
+            data => {
+                // X axis
+                const x = d3.scaleBand()
+                    .range([0, width])
+                    .domain(data.map(d => d.city))
+                    .padding(0.2);
+                svg.append("g")
+                    .attr("transform", `translate(0,${height})`)
+                    .call(d3.axisBottom(x))
+                    .selectAll("text")
+                    .attr("transform", "translate(-10,0)rotate(-45)")
+                    .style("text-anchor", "end");
+
+                // Add Y axis
+                const y = d3.scaleLinear()
+                    .domain([0, 1000])
+                    .range([height, 0]);
+                svg.append("g")
+                    .call(d3.axisLeft(y));
+
+                // Add Bars
+                const bars = svg.selectAll("bar")
+                    .data(data)
+                    .enter()
+                    .append("rect")
+                    .attr("x", d => x(d.city))
+                    .attr("y", d => y(d.profit))
+                    .attr("width", x.bandwidth())
+                    .attr("height", d => height - y(d.profit))
+                    .attr("fill", "#69b3a2");
+                /**
+                 * Brush handler
+                 * @param {BrushEvent} event
+                 */
+                const handleBrush = (event) => {
+                    const { selection } = event;
+
+                    // If no selection, restore original colors
+                    if (!selection) {
+                        bars.attr("fill", "#69b3a2");
+                        d3.select("#selection").html("");
+                        return;
+                    }
+
+                    // Get the selection box coordinates
+                    const [[x0, y0], [x1, y1]] = selection;
+
+                    // Change the color of bars that overlap any part of the selection box
+                    bars.attr("fill", d => (!(
+                        x(d.city) > x1 ||
+                        x(d.city) + x.bandwidth() < x0 ||
+                        y(d.profit) > y1 ||
+                        y(d.profit) + height - y(d.profit) < y0
+                    ) ? "orange" : "#69b3a2"));
+
+                    // Select the labels of the selected bars
+                    const selectedLabels = data.filter(d => !(
+                        x(d.city) > x1 ||
+                        x(d.city) + x.bandwidth() < x0 ||
+                        y(d.profit) > y1 ||
+                        y(d.profit) + height - y(d.profit) < y0)
+                    ).map(d => d.city);
+
+                    // Add the selected labels below the chart
+                    d3.select("#selection")
+                        .html(selectedLabels.join("<br />"))
+                        .style("margin-left", `${margin.left}px`);
+                };
+
+                // Add Brush
+                const brush = d3.brush()
+                    .extent([[0, 0], [width, height]])
+                    .on("brush", handleBrush)
+                    .on("end", handleBrush);
+                svg.append("g")
+                    .call(brush);
+            }
+        )
+        .catch(error => {
+            console.error('Error:', error);
+        });
+</script>
+</body>
+</html>
