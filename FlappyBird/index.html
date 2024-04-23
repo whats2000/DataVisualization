@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Flappy Bird</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      svg { background-color: #add8e6; }
+      #resetButton { margin-top: 10px; }
+    </style>
+</head>
+<body>
+<div id="visualization"></div>
+<button id="resetButton" onclick="resetGame()">Reset Game</button>
+<script>
+    const width = 800, height = 600;
+    const birdRadius = 20;
+    const gravity = 0.6;
+    const lift = -15;
+    const airResistance = 0.9;
+    let score = 0;
+    let gameOver = false;
+    let intervalId;
+
+    // Create SVG element
+    const svg = d3.select("#visualization").append("svg")
+        .attr("width", width)
+        .attr("height", height);
+
+    let birdElem;
+    let obstacles = [];
+
+    function setup() {
+        // Remove previous bird if exists
+        if (birdElem) {
+            birdElem.remove();
+        }
+
+        // Bird setup
+        const bird = { x: width / 3, y: height / 2, velocity: 0 };
+        birdElem = svg.append("circle")
+            .datum(bird) // Bind data to the bird element
+            .attr("cx", bird.x)
+            .attr("cy", bird.y)
+            .attr("r", birdRadius)
+            .style("fill", "yellow");
+
+        // Initial obstacles setup
+        obstacles.forEach(obstacle => obstacle.remove());
+        obstacles = [];
+        svg.selectAll(".obstacle").remove();
+        addObstacle();
+        updateObstacles();
+    }
+
+    function update() {
+        if (!gameOver) {
+            // Apply physics to bird
+            const birdData = birdElem.datum();
+            const newY = parseFloat(birdElem.attr("cy")) - (-birdData.velocity - gravity);
+            birdData.velocity = (birdData.velocity + gravity) * airResistance;
+
+            if (newY > height - birdRadius) {
+                birdElem.attr("cy", height - birdRadius);
+                birdData.velocity = 0;
+            } else if (newY < birdRadius) {
+                birdElem.attr("cy", birdRadius);
+                birdData.velocity = 0;
+            } else {
+                birdElem.attr("cy", newY);
+            }
+
+            // Update obstacles
+            updateObstacles();
+
+            // Check for collisions
+            checkCollisions();
+
+            requestAnimationFrame(update);
+        }
+    }
+
+    function resetGame() {
+        gameOver = false;
+        score = 0;
+        setup();
+        update();
+    }
+
+    function addObstacle() {
+        const gapHeight = Math.random() * (height - 300) + 150;
+        const obstacleWidth = 40;
+        const obstacle = svg.append("rect")
+            .attr("class", "obstacle")
+            .attr("x", width)
+            .attr("width", obstacleWidth)
+            .attr("height", gapHeight - 150)
+            .style("fill", "green");
+        obstacles.push(obstacle);
+        const obstacle2 = svg.append("rect")
+            .attr("class", "obstacle")
+            .attr("x", width)
+            .attr("y", gapHeight)
+            .attr("width", obstacleWidth)
+            .attr("height", height - gapHeight)
+            .style("fill", "green");
+        obstacles.push(obstacle2);
+    }
+
+    function updateObstacles() {
+        obstacles.forEach(obstacle => {
+            const newX = parseFloat(obstacle.attr("x")) - 3;
+            obstacle.attr("x", newX);
+            if (newX + parseFloat(obstacle.attr("width")) < 0) {
+                obstacle.remove();
+                obstacles.splice(obstacles.indexOf(obstacle), 1);
+            }
+        });
+        if (obstacles.length < 4) {
+            addObstacle();
+        }
+    }
+
+    function checkCollisions() {
+        const birdY = parseFloat(birdElem.attr("cy"));
+        const birdX = parseFloat(birdElem.attr("cx"));
+        obstacles.forEach(obstacle => {
+            const obstacleX = parseFloat(obstacle.attr("x"));
+            const obstacleWidth = parseFloat(obstacle.attr("width"));
+            const obstacleY = parseFloat(obstacle.attr("y"));
+            const obstacleHeight = parseFloat(obstacle.attr("height"));
+            // Adjust collision detection to consider the bird's radius
+            if (birdX + birdRadius > obstacleX && birdX - birdRadius < obstacleX + obstacleWidth &&
+                (birdY - birdRadius < obstacleY || birdY + birdRadius > obstacleY + obstacleHeight)) {
+                gameOver = true;
+                console.log("Game Over");
+            }
+        });
+    }
+
+    svg.on("click", () => {
+        if (!gameOver) {
+            birdElem.datum().velocity = lift;
+        }
+    });
+
+    setup();
+    update();
+</script>
+</body>
+</html>
