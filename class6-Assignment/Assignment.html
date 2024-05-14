@@ -1,345 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Assignment 4</title>
+    <title>Assignment 7</title>
 
     <meta charset="utf-8">
 
     <!-- Load d3.js -->
     <script src="https://d3js.org/d3.v6.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <script src="https://d3js.org/d3-geo-projection.v2.min.js"></script>
+
+    <!-- Load TopoJSON -->
+    <script src="https://unpkg.com/topojson@3"></script>
+
+    <style>
+      .county-borders {
+        fill: none;
+        stroke: #fff;
+        stroke-width: 0.5;
+      }
+    </style>
 </head>
 <body>
-<!-- Create a div where the visualization will be placed -->
-<div id="data-visualization"></div>
-
-<!-- Create a div where the selected labels will be placed -->
-<div id="selection"></div>
+<!-- Create a svg where the visualization will be placed -->
+<svg id="data-visualization"></svg>
 <script>
     /**
-     * Create the bar chart show in the previous slide
-     * Bar color when brushed: orange
-     * Highlight a bar when it is brushed over by any part of the selection box
-     * Click outside brushed area to cancel brush and highlighted bars (restore original colors)
-     * For the bars that are brushed, their x-axis labels will be shown in order below the chart as shown in the previous slide
-     * The listed labels below the chart has the same left margin (left-aligned to yaxis) as the chart above
+     * Use data6.csv from the assignment online, place in same folder as html and read with relative path:
+     * d3.csv("data6.csv")…
+     * • Make the map shown in the previous slide
+     *   • Use the TopoJSON (counties level) downloaded from the reference below
+     *   • Use Mercator projection
+     *   • Center the map at [123,24], scale 7000
+     *   • Use lightgray as the color of the map, and white for the county borders
+     *
+     * • For the circles
+     *   • The location of the circles are specified in the data file (longitude and latitude)
+     *   • The color scale is interpolateOranges with domain [0, 10000]
+     *   • The radius is 5-30 pixels with domain [0,1000]
+     *
+     * • For the texts
+     *   • Font family: Tahoma
+     *   • Font size: 12
+     *   • Texts are centered in the circle both vertically and horizontally as shown in the previous slide
+     *
+     * • Adjust labels, margins, scales, and colors to create look & feel in the previous slide
      */
 
     /**
-     * @typedef {Object} Data
-     * @property {string} city - The name of the city
-     * @property {number} profit - The profit of the city
-     * @property {number} revenue - The revenue of the city
+     * @typedef {Object} TopoJSONObjects
+     * @property {Object} counties
      */
+
     /**
-     * @typedef {Object} BrushEvent
-     * @property {[[number, number], [number, number]]} selection
+     * @typedef {Object} TopoJSON
+     * @property {TopoJSONObjects} objects
      */
 
-        // Set the dimensions and margins of the graph
-    const margin = {top: 30, right: 30, bottom: 70, left: 60},
-        width = 460 - margin.left - margin.right,
-        height = 400 - margin.top - margin.bottom;
+    /**
+     * @typedef {Object} DisplayData
+     * @property {string} city
+     * @property {number} profit
+     * @property {number} revenue
+     * @property {number} latitude
+     * @property {number} longitude
+     */
 
-    const margin2 = {top: 30, right: 30, bottom: 70, left: -100},
-        width2 = 350 - margin2.left - margin2.right,
-        height2 = 400 - margin2.top - margin2.bottom;
+    // The svg
+    const svg = d3.select("#data-visualization"),
+        width = +svg.attr("width"),
+        height = +svg.attr("height");
 
-    // Append the svg object to the body of the page
-    const svg = d3.select("#data-visualization")
-        .append("svg")
-        .attr("width", width + margin.left + margin.right)
-        .attr("height", height + margin.top + margin.bottom)
-        .append("g")
-        .attr("transform", `translate(${margin.left},${margin.top})`);
+    // Set the size of the svg
+    svg.attr("width", 800)
+        .attr("height", 800);
 
-    // Append another svg for parallel plot
-    const svg2 = d3.select("#data-visualization")
-        .append("svg")
-        .attr("width", width2 + margin2.left + margin2.right)
-        .attr("height", height2 + margin2.top + margin2.bottom)
-        .append("g")
-        .attr("transform", `translate(${margin2.left},${margin2.top})`);
+    // Map and projection
+    const projection = d3.geoMercator()
+        .center([123, 24]) // coordinate to center the map
+        .scale(7000);      // scale of the map
 
-    // Parse the Data
-    d3.csv("data5.csv")
+    // Load external data and boot
+    const path = d3.geoPath()
+        .projection(projection);
+
+    d3.json("counties-10t.json")
         .then(
             /**
-             * @param {Data[]} data
+             * TopoJSON of Taiwan counties
+             * @param data {TopoJSON}
              */
-            data => {
-                // Extract the list of dimensions we want to keep in the plot. Here I keep all except the column called city
-                const dimensions = Object.keys(data[0]).filter((d) => d !== "city");
-
-                // For each dimension, I build a linear scale. I store all in a y object
-                const y2 = {}
-
-                for (const name of dimensions) {
-                    y2[name] = d3
-                        .scaleLinear()
-                        .domain(
-                            d3.extent(data, (d) => {
-                                return +d[name];
-                            })
-                        ).range([height2, 0]);
-                }
-
-                // Build the X scale -> it finds the best position for each Y axis
-                const x2 = d3.scalePoint()
-                    .range([10, width2])
-                    .padding(1)
-                    .domain(dimensions);
-
-                // Draw the axis:
-                const path = (d) => {
-                    return d3.line()(dimensions.map(
-                        (p) => [x2(p), y2[p](d[p])]
-                    ));
-                }
-
-                // Draw the lines
-                svg2
-                    .selectAll("myPath")
-                    .data(data)
-                    .enter().append("path")
+            (data) => {
+                svg.selectAll("path")
+                    .data(topojson.feature(data, data.objects.counties).features)
+                    .join("path")
                     .attr("d", path)
-                    .style("fill", "none")
-                    .style("stroke", "#69b3a2")
-                    .style("stroke-width", 3)
-                    .style("opacity", 1)
+                    .attr("fill", "lightgrey");
+                svg.append("path")
+                    .datum(topojson.feature(data, data.objects.counties))
+                    .classed("county-borders", true)
+                    .attr("d", path(topojson.mesh(data, data.objects.counties, (a, b) => a !== b)));
 
-                // Correct Axis Calls
-                svg2.selectAll("myAxis")
-                    .data(dimensions).enter()
-                    .append("g")
-                    .attr("transform", function (d) {
-                        return "translate(" + x2(d) + ")";
-                    })
-                    .each(function (d) {
-                        d3.select(this).call(d3.axisLeft(y2[d]));
-                    })
-                    .append("text")
-                    .style("text-anchor", "middle")
-                    .attr("y", -9)
-                    .text(function (d) {
-                        return d;
-                    })
-                    .style("fill", "black");
+                // Load data6.csv
+                d3.csv("data6.csv")
+                    .then(
+                        /**
+                         * @param data {DisplayData[]}
+                         */
+                        (data) => {
+                            // Add circles:
+                            svg.selectAll("myCircles")
+                                .data(data)
+                                .enter()
+                                .append("circle")
+                                .attr("cx", d => projection([d.longitude, d.latitude])[0])
+                                .attr("cy", d => projection([d.longitude, d.latitude])[1])
+                                .attr("r", d => d3.scaleLinear().domain([0, 1000]).range([5, 30])(d.profit))
+                                .style("fill", d => d3.interpolateOranges(d.revenue / 10000))
+                                .style("opacity", 0.6);
 
-                // X axis
-                const x = d3.scaleBand()
-                    .range([0, width])
-                    .domain(data.map(d => d.city))
-                    .padding(0.2);
-                svg.append("g")
-                    .attr("transform", `translate(0,${height})`)
-                    .call(d3.axisBottom(x))
-                    .selectAll("text")
-                    .attr("transform", "translate(-10,0)rotate(-45)")
-                    .style("text-anchor", "end");
-
-                // Add Y axis
-                const y = d3.scaleLinear()
-                    .domain([0, 1000])
-                    .range([height, 0]);
-                svg.append("g")
-                    .call(d3.axisLeft(y));
-
-                // Add Bars
-                const bars = svg.selectAll("bar")
-                    .data(data)
-                    .enter()
-                    .append("rect")
-                    .attr("x", d => x(d.city))
-                    .attr("y", d => y(d.profit))
-                    .attr("width", x.bandwidth())
-                    .attr("height", d => height - y(d.profit))
-                    .attr("fill", "#69b3a2");
-                /**
-                 * Brush handler
-                 * @param {BrushEvent} event
-                 */
-                const handleBrushBar = (event) => {
-                    const {selection} = event;
-
-                    // If no selection, restore original colors
-                    if (!selection) {
-                        bars.attr("fill", "#69b3a2");
-                        d3.select("#selection").html("");
-
-                        // Change the line color
-                        svg2.selectAll("path")
-                            .style("stroke", "#69b3a2");
-                        return;
-                    }
-
-                    // Get the selection box coordinates
-                    const [[x0, y0], [x1, y1]] = selection;
-
-                    // Change the color of bars that overlap any part of the selection box
-                    bars.attr("fill", d => (!(
-                        x(d.city) > x1 ||
-                        x(d.city) + x.bandwidth() < x0 ||
-                        y(d.profit) > y1 ||
-                        y(d.profit) + height - y(d.profit) < y0
-                    ) ? "orange" : "#69b3a2"));
-
-                    // Select the labels of the selected bars
-                    const selectedLabels = data.filter(d => !(
-                        x(d.city) > x1 ||
-                        x(d.city) + x.bandwidth() < x0 ||
-                        y(d.profit) > y1 ||
-                        y(d.profit) + height - y(d.profit) < y0)
-                    ).map(d => d.city);
-
-                    // Add the selected labels below the chart
-                    d3.select("#selection")
-                        .html(selectedLabels.join("<br />"))
-                        .style("margin-left", `${margin.left}px`);
-
-                    // Change the line color
-                    svg2.selectAll("path")
-                        .style("stroke", d => selectedLabels.includes(d.city) ? "orange" : "#69b3a2");
-                };
-
-                /**
-                 * Brush handler for parallel plot
-                 * @param {BrushEvent} event
-                 */
-                const handleBrushParallel = (event) => {
-                    const {selection} = event;
-
-                    if (!selection) {
-                        // Restore original bar color when the brush is cleared
-                        bars.attr("fill", "#69b3a2");
-
-                        // Clear selected labels
-                        d3.select("#selection").html("");
-
-                        // Restore original line color when brush is cleared
-                        svg2.selectAll("path")
-                            .style("stroke", "#69b3a2");
-                        return;
-                    }
-
-                    const [[x0, y0], [x1, y1]] = selection; // Brush coordinates
-
-                    // Function to check if a line segment intersects the brush area using the Cohen-Sutherland algorithm
-                    function intersects(x0, y0, x1, y1, x2, y2, x3, y3) {
-                        const INSIDE = 0; // 0000
-                        const LEFT = 1;   // 0001
-                        const RIGHT = 2;  // 0010
-                        const BOTTOM = 4; // 0100
-                        const TOP = 8;    // 1000
-
-                        // Compute the bit code for a point (x, y) using the clip rectangle bounded diagonally by (x0, y0) and (x1, y1)
-                        function computeOutCode(x, y, x0, y0, x1, y1) {
-                            let code = INSIDE;
-                            if (x < x0) code |= LEFT;
-                            else if (x > x1) code |= RIGHT;
-                            if (y < y0) code |= BOTTOM;
-                            else if (y > y1) code |= TOP;
-                            return code;
+                            // Add labels:
+                            svg.selectAll("myLabels")
+                                .data(data)
+                                .enter()
+                                .append("text")
+                                .attr("x", d => projection([d.longitude, d.latitude])[0])
+                                .attr("y", d => projection([d.longitude, d.latitude])[1])
+                                .text(d => d.city)
+                                .style("text-anchor", "middle")
+                                .style("dominant-baseline", "middle")
+                                .style("font-family", "Tahoma")
+                                .style("font-size", 12)
+                                .style("fill", "black");
                         }
-
-                        let outcode0 = computeOutCode(x2, y2, x0, y0, x1, y1);
-                        let outcode1 = computeOutCode(x3, y3, x0, y0, x1, y1);
-                        let accept = false;
-
-                        while (true) {
-                            if (!(outcode0 | outcode1)) {
-                                // Bitwise OR is 0: both points inside the window; report success
-                                accept = true;
-                                break;
-                            } else if (outcode0 & outcode1) {
-                                // Bitwise AND is not 0: both points share an outside zone (FAIL)
-                                break;
-                            } else {
-                                // Failed both tests, so calculate the line segment to clip
-                                // from an outside point to an intersection with clip edge
-                                let outcodeOut = outcode0 ? outcode0 : outcode1;
-                                let x, y;
-
-                                // Find intersection point
-                                // using formulas y = y2 + slope * (x - x2), x = x2 + (1 / slope) * (y - y2)
-                                if (outcodeOut & TOP) {           // point is above the clip window
-                                    x = x2 + (x3 - x2) * (y1 - y2) / (y3 - y2);
-                                    y = y1;
-                                } else if (outcodeOut & BOTTOM) { // point is below the clip window
-                                    x = x2 + (x3 - x2) * (y0 - y2) / (y3 - y2);
-                                    y = y0;
-                                } else if (outcodeOut & RIGHT) {  // point is to the right of the clip window
-                                    y = y2 + (y3 - y2) * (x1 - x2) / (x3 - x2);
-                                    x = x1;
-                                } else if (outcodeOut & LEFT) {   // point is to the left of the clip window
-                                    y = y2 + (y3 - y2) * (x0 - x2) / (x3 - x2);
-                                    x = x0;
-                                }
-
-                                // Now we move outside point to intersection point to clip
-                                // and get ready for the next pass.
-                                if (outcodeOut === outcode0) {
-                                    x2 = x;
-                                    y2 = y;
-                                    outcode0 = computeOutCode(x2, y2, x0, y0, x1, y1);
-                                } else {
-                                    x3 = x;
-                                    y3 = y;
-                                    outcode1 = computeOutCode(x3, y3, x0, y0, x1, y1);
-                                }
-                            }
-                        }
-                        return accept;
-                    }
-
-                    // Change bar color corresponding to the line
-                    bars.attr("fill", (d) => {
-                        let brushed = false;
-                        const coords = dimensions.map(dim => [x2(dim), y2[dim](d[dim])]);
-                        for (let i = 0; i < coords.length - 1; i++) {
-                            // Check each segment of the line
-                            if (intersects(x0, y0, x1, y1, coords[i][0], coords[i][1], coords[i + 1][0], coords[i + 1][1])) {
-                                brushed = true;
-                                break;
-                            }
-                        }
-                        return brushed ? "orange" : "#69b3a2";
+                    )
+                    .catch(error => {
+                        console.error(error);
                     });
-
-                    // Change line color based on whether any part of it intersects the brush
-                    svg2.selectAll("path")
-                        .style("stroke", (d) => {
-                            let brushed = false;
-                            const coords = dimensions.map(dim => [x2(dim), y2[dim](d[dim])]);
-                            for (let i = 0; i < coords.length - 1; i++) {
-                                // Check each segment of the line
-                                if (intersects(x0, y0, x1, y1, coords[i][0], coords[i][1], coords[i + 1][0], coords[i + 1][1])) {
-                                    brushed = true;
-                                    break;
-                                }
-                            }
-                            return brushed ? "orange" : "#69b3a2";
-                        });
-                };
-
-                // Add Brush
-                const brush = d3.brush()
-                    .extent([[0, 0], [width, height]])
-                    .on("brush", handleBrushBar)
-                    .on("end", handleBrushBar);
-                svg.append("g")
-                    .call(brush);
-
-                // Add Brush for parallel plot
-                const brush2 = d3.brush()
-                    .extent([[0, 0], [width2, height2]])
-                    .on("brush", handleBrushParallel)
-                    .on("end", handleBrushParallel);
-                svg2.append("g")
-                    .call(brush2);
-            }
-        )
+            })
         .catch(error => {
-            console.error('Error:', error);
+            console.error(error);
         });
 </script>
 </body>
